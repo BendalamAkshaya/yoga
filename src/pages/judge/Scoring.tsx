@@ -157,21 +157,22 @@ export default function JudgeScoring() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const submitPenalty = useMutation({
+  const applyPenalty = useMutation({
     mutationFn: async () => {
       if (!currentAthlete || !judge) return;
       const { error } = await supabase.from('penalties').insert({
         athlete_id: currentAthlete.id,
         event_id: judge.event_id,
         penalty_value: parseFloat(penaltyValue),
-        reason: penaltyReason,
+        reason: penaltyReason || (penaltyValue === '0' ? 'Confirmed: No violations' : ''),
       });
       if (error) throw error;
     },
     onSuccess: () => {
       setPenaltyValue('');
       setPenaltyReason('');
-      toast.success('Penalty applied!');
+      toast.success(penaltyValue === '0' ? 'Asana confirmed with no penalties' : 'Penalty applied!');
+      queryClient.invalidateQueries({ queryKey: ['penalties'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -487,78 +488,133 @@ export default function JudgeScoring() {
 
         {/* E Judge - Penalties */}
         {currentAthlete && isEJudge && (
-          <Card className="card-elevated">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                Apply Penalty
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Penalty Value</Label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  min={0}
-                  value={penaltyValue}
-                  onChange={(e) => setPenaltyValue(e.target.value)}
-                  placeholder="0.5"
-                />
+          <Card className="card-elevated overflow-hidden border-destructive/20 relative">
+            {alreadySubmittedActive && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-success" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Penalty Submitted!</h3>
+                <p className="text-muted-foreground">Waiting for the Chief Judge to load the next asana...</p>
+                <div className="mt-6 flex items-center gap-2 text-sm text-primary font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Staying synced...
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Reason</Label>
-                <Textarea
-                  value={penaltyReason}
-                  onChange={(e) => setPenaltyReason(e.target.value)}
-                  placeholder="Incorrect asana order, time violation..."
-                />
+            )}
+
+            <div className="gradient-destructive p-4 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <span className="font-bold">E-Judge</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Penalty Assessment</h3>
+                  <p className="text-white/80 text-sm">Asana: {currentActiveAsana?.asana_name || 'Active Asana'}</p>
+                </div>
+              </div>
+            </div>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Asana Image */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Reference Asana</p>
+                  {currentActiveAsana?.image_url ? (
+                    <div className="aspect-square rounded-xl border bg-white flex items-center justify-center p-2 relative group overflow-hidden">
+                      <img
+                        src={currentActiveAsana.image_url}
+                        alt={currentActiveAsana.asana_name}
+                        className="max-h-full max-w-full object-contain transition-transform group-hover:scale-110"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square rounded-xl border bg-muted flex flex-col items-center justify-center p-4">
+                      <p className="text-xs text-muted-foreground text-center">No reference image available</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Penalty Controls */}
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Violation Penalty</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'None (0)', val: 0 },
+                        { label: 'Minor (0.5)', val: 0.5 },
+                        { label: 'Major (1.0)', val: 1.0 },
+                        { label: 'Severe (2.0)', val: 2.0 },
+                      ].map((p) => (
+                        <Button
+                          key={p.val}
+                          type="button"
+                          variant={penaltyValue === p.val.toString() ? 'destructive' : 'outline'}
+                          className="py-6 h-auto"
+                          onClick={() => setPenaltyValue(p.val.toString())}
+                        >
+                          {p.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Reason</Label>
+                    <Textarea
+                      placeholder="e.g. Body touching floor, Balance..."
+                      value={penaltyReason}
+                      onChange={(e) => setPenaltyReason(e.target.value)}
+                      className="bg-accent/30 min-h-[80px]"
+                    />
+                  </div>
+
+                  <div className="pt-4 flex flex-col gap-2">
+                    <Button
+                      size="xl"
+                      className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-lg h-16 text-lg font-bold"
+                      onClick={() => applyPenalty.mutate()}
+                      disabled={applyPenalty.isPending || !penaltyValue}
+                    >
+                      {applyPenalty.isPending ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-5 h-5 mr-2" />
+                          {penaltyValue === '0' ? 'Confirm (No Penalty)' : 'Apply Penalty'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Incorrect Order (1st)', val: 2.0 },
-                  { label: 'Incorrect Order (2nd)', val: 4.0 },
-                  { label: 'Incorrect Order (3rd)', val: 6.0 },
-                  { label: 'Missing 1 Category', val: 5.0 },
-                  { label: 'Missing 2 Categories', val: 10.0 },
-                  { label: 'Missing 3 Categories', val: 15.0 },
-                  { label: 'Extra Asana', val: 5.0 },
-                ].map(p => (
-                  <Button
-                    key={p.label}
-                    variant="outline"
-                    size="sm"
-                    className="h-10 px-4"
-                    onClick={() => {
-                      setPenaltyValue(p.val.toString());
-                      setPenaltyReason(p.label);
-                    }}
-                  >
-                    {p.label} (-{p.val})
-                  </Button>
-                ))}
+              {/* Quick Preset Buttons */}
+              <div className="mt-8 pt-6 border-t space-y-3">
+                <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Quick Presets</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Incorrect Order', val: 2.0 },
+                    { label: 'Missing Category', val: 5.0 },
+                    { label: 'Extra Asana', val: 5.0 },
+                  ].map(p => (
+                    <Button
+                      key={p.label}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPenaltyValue(p.val.toString());
+                        setPenaltyReason(p.label);
+                      }}
+                    >
+                      {p.label} (-{p.val})
+                    </Button>
+                  ))}
+                </div>
               </div>
-
-              <div className="flex items-center space-x-2 pt-4 border-t">
-                <input
-                  type="checkbox"
-                  id="confirm-order"
-                  checked={orderConfirmed}
-                  onChange={(e) => setOrderConfirmed(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <Label htmlFor="confirm-order" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  I confirm the athlete performed asanas in the declared order
-                </Label>
-              </div>
-
-
-              <Button variant="warning" className="w-full" onClick={() => submitPenalty.mutate()} disabled={submitPenalty.isPending || !penaltyValue}>
-                <AlertTriangle className="w-4 h-4 mr-2" /> Apply Penalty
-              </Button>
             </CardContent>
-
           </Card>
         )}
       </div>

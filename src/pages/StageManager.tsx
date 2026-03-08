@@ -7,10 +7,28 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Play, CheckCircle2, XCircle, SkipForward, User } from 'lucide-react';
+import { useEffect } from 'react';
 
 export default function StageManager() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('stage-manager-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athletes' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['stage-athletes'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const { data: judge } = useQuery({
     queryKey: ['my-judge-sm', user?.id],

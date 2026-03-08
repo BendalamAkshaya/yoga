@@ -132,7 +132,7 @@ export default function ChiefJudge() {
     );
 
     return {
-      judges: judges?.map(j => ({
+      judges: judges?.filter(j => (j.role as string) !== 'stage_manager' && (j.role as string) !== 'scorer').map(j => ({
         ...j,
         submitted: submittedJudgeIds.includes(j.id),
       })) || [],
