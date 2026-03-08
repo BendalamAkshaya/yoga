@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { CheckCircle2, XCircle, Eye, Calculator, RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle, Eye, Calculator, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { calculateFinalScore } from '@/lib/supabase-helpers';
 
 export default function ChiefJudge() {
@@ -119,8 +119,11 @@ export default function ChiefJudge() {
       const { error: penErr } = await supabase.from('penalties').delete().eq('athlete_id', athleteId);
       if (penErr) throw penErr;
 
-      // 3. Reset athlete status to 'waiting'
-      const { error: athErr } = await supabase.from('athletes').update({ status: 'waiting' }).eq('id', athleteId);
+      // 3. Reset athlete status to 'waiting' and reset current_asana_index
+      const { error: athErr } = await supabase.from('athletes').update({
+        status: 'waiting',
+        current_asana_index: 0
+      } as any).eq('id', athleteId);
       if (athErr) throw athErr;
     },
     onSuccess: () => {
@@ -130,6 +133,17 @@ export default function ChiefJudge() {
       toast.success('Match restarted successfully. All scores wiped.');
     },
     onError: (e: Error) => toast.error('Failed to restart: ' + e.message)
+  });
+
+  const updateAsanaIndex = useMutation({
+    mutationFn: async (newIndex: number) => {
+      if (!currentAthlete) return;
+      const { error } = await supabase.from('athletes').update({ current_asana_index: newIndex } as any).eq('id', currentAthlete.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event-athletes'] });
+    },
   });
 
   const selectedScores = allScores?.filter(s => s.athlete_id === selectedAthlete) || [];
@@ -240,10 +254,34 @@ export default function ChiefJudge() {
                   </div>
                 </div>
 
+                <div className="flex items-center gap-2 pt-4 border-t mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled={((currentAthlete as any).current_asana_index || 0) <= 0 || updateAsanaIndex.isPending}
+                    onClick={() => updateAsanaIndex.mutate(((currentAthlete as any).current_asana_index || 0) - 1)}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" /> Prev Asana
+                  </Button>
+                  <div className="px-4 py-2 bg-accent rounded-lg text-sm font-bold">
+                    Asana {((currentAthlete as any).current_asana_index || 0) + 1}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled={updateAsanaIndex.isPending}
+                    onClick={() => updateAsanaIndex.mutate(((currentAthlete as any).current_asana_index || 0) + 1)}
+                  >
+                    Next Asana <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+
                 <div className="flex justify-end pt-4 border-t mt-4">
                   <Button
                     variant="outline"
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground w-full"
                     onClick={() => {
                       if (confirm(`Are you sure you want to RESTART the match for ${currentAthlete.name}? This will delete all current scores and send them back to the waiting list.`)) {
                         restartMatch.mutate(currentAthlete.id);
