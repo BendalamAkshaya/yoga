@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,14 +9,46 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { CheckCircle2, XCircle, Eye, Calculator, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
 import { calculateFinalScore } from '@/lib/supabase-helpers';
-
 
 export default function ChiefJudge() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('chief-judge-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'scores' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['all-scores'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athletes' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['event-athletes'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'penalties' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['penalties'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const { data: judge } = useQuery({
     queryKey: ['my-judge-cj', user?.id],
