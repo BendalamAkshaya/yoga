@@ -77,7 +77,7 @@ export default function Leaderboard() {
         dJudgeScores[s.judge_id].push(s.final_score);
       }
       if (s.judges?.role === 't_judge') {
-        tTotal += s.score;
+        tTotal += s.final_score;
       }
     });
 

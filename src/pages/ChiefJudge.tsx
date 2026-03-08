@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { CheckCircle2, XCircle, Eye, Calculator } from 'lucide-react';
+import { CheckCircle2, XCircle, Eye, Calculator, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { calculateFinalScore } from '@/lib/supabase-helpers';
 
@@ -76,6 +76,29 @@ export default function ChiefJudge() {
     },
   });
 
+  const restartMatch = useMutation({
+    mutationFn: async (athleteId: string) => {
+      // 1. Delete all scores for this athlete
+      const { error: scoreErr } = await supabase.from('scores').delete().eq('athlete_id', athleteId);
+      if (scoreErr) throw scoreErr;
+
+      // 2. Delete all penalties for this athlete
+      const { error: penErr } = await supabase.from('penalties').delete().eq('athlete_id', athleteId);
+      if (penErr) throw penErr;
+
+      // 3. Reset athlete status to 'waiting'
+      const { error: athErr } = await supabase.from('athletes').update({ status: 'waiting' }).eq('id', athleteId);
+      if (athErr) throw athErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-scores'] });
+      queryClient.invalidateQueries({ queryKey: ['penalties'] });
+      queryClient.invalidateQueries({ queryKey: ['event-athletes'] });
+      toast.success('Match restarted successfully. All scores wiped.');
+    },
+    onError: (e: Error) => toast.error('Failed to restart: ' + e.message)
+  });
+
   const selectedScores = allScores?.filter(s => s.athlete_id === selectedAthlete) || [];
   const currentAthlete = athletes?.find(a => a.status === 'performing');
 
@@ -94,7 +117,7 @@ export default function ChiefJudge() {
     // T Judge total
     const tJudge = judges?.find(j => j.role === 't_judge');
     const tScores = athleteScores.filter(s => s.judge_id === tJudge?.id);
-    const tTotal = tScores.reduce((sum, s) => sum + s.score, 0);
+    const tTotal = tScores.reduce((sum, s) => sum + s.final_score, 0);
 
     // Penalties
     const athletePenalties = penalties?.filter(p => p.athlete_id === athleteId && p.approved) || [];
@@ -182,6 +205,21 @@ export default function ChiefJudge() {
                   <div className="text-3xl font-display font-black">
                     {getJudgeSubmissionStatus(currentAthlete.id).calculations.finalScore.toFixed(3)}
                   </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t mt-4">
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to RESTART the match for ${currentAthlete.name}? This will delete all current scores and send them back to the waiting list.`)) {
+                        restartMatch.mutate(currentAthlete.id);
+                      }
+                    }}
+                    disabled={restartMatch.isPending}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" /> Restart Match
+                  </Button>
                 </div>
               </div>
             </CardContent>

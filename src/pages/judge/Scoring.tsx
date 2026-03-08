@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { CheckCircle2, AlertTriangle, Send, User } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Send, User, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export default function JudgeScoring() {
   const { user, hasRole } = useAuth();
@@ -99,9 +99,25 @@ export default function JudgeScoring() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'athletes', filter: `event_id=eq.${judge.event_id}` }, () => {
         queryClient.invalidateQueries({ queryKey: ['current-athlete'] });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores', filter: `judge_id=eq.${judge.id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['my-scores'] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [judge?.event_id, queryClient]);
+  }, [judge?.event_id, judge?.id, queryClient]);
+
+  const updateAsanaIndex = useMutation({
+    mutationFn: async (newIndex: number) => {
+      if (!currentAthlete) return;
+      const { error } = await supabase.from('athletes').update({ current_asana_index: newIndex }).eq('id', currentAthlete.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['current-athlete'] });
+      toast.success('Asana updated for all judges');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const maxScore = hasRole('t_judge') ? 2 : 8;
   const isDJudge = hasRole('d_judge');
@@ -135,7 +151,7 @@ export default function JudgeScoring() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Scores submitted successfully!');
+      toast.success('Score submitted!');
       queryClient.invalidateQueries({ queryKey: ['my-scores'] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -160,33 +176,87 @@ export default function JudgeScoring() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const getAsanaList = () => {
-    if (!asanas || !currentAthlete) return [];
+  // Map age_group DB value to folder name in the public directory
+  const AGE_GROUP_FOLDERS: Record<string, string> = {
+    sub_junior: 'Sub Juniors (10+ to 14 Years)',
+    junior: 'Juniors (14+ to 18 yeaars)',
+    senior: 'Senior (18+ to 28 years)',
+    senior_a: 'Senior-A (28+ to 35 Years)',
+    senior_b: 'Senior-B (35+ to 45 Years)',
+    senior_c: 'Senior-C (45+ to 55 Years)',
+  };
 
-    // Compulsory codes from event_asanas
-    const compulsoryCodes = eventCompulsory && eventCompulsory.length > 0
-      ? eventCompulsory
-      : asanas.filter(a => a.type === 'compulsory').slice(0, judge?.events?.no_of_asanas || 5).map(a => a.asana_code);
+  const getAsanaList = () => {
+    if (!currentAthlete || !judge?.events) return [];
+
+    const event = judge.events as any;
+    const eventCategory: string = event.event_category ?? '';
+    const isTraditional = eventCategory === 'traditional';
+
+    let compulsoryAsanas: any[] = [];
+
+    if (isTraditional) {
+      const ageGroup: string = event.age_group ?? '';
+      const ageFolder = AGE_GROUP_FOLDERS[ageGroup] ?? '';
+      const roundFolder = event.round === 'final' ? 'Final' : 'Semi-Final';
+      const numCompulsory = event.round === 'final' ? 4 : 5;
+
+      for (let i = 1; i <= numCompulsory; i++) {
+        compulsoryAsanas.push({
+          asana_code: `COMP-${ageGroup}-${event.round}-${i}`,
+          asana_name: `Compulsory Asana ${i}`,
+          type: 'compulsory',
+          base_value: 1.0,
+          image_url: ageFolder
+            ? `/Compulsory Asana Traditional/${roundFolder}/${ageFolder}/${i}.png`
+            : null,
+        });
+      }
+    }
 
     const optionalCodes = [
       (currentAthlete as any).optional_asana1,
       (currentAthlete as any).optional_asana2,
       (currentAthlete as any).optional_asana3,
+      (currentAthlete as any).optional_asana4,
+      (currentAthlete as any).optional_asana5,
     ].filter(Boolean);
 
-    const combinedCodes = [...compulsoryCodes, ...optionalCodes];
-    return combinedCodes.map(code => asanas.find(a => a.asana_code === code)).filter(Boolean) as any[];
+    const optionalAsanas = asanas
+      ? optionalCodes.map(code => (asanas as any[]).find(a => a.asana_code === code)).filter(Boolean)
+      : [];
+
+    const fullList = [...compulsoryAsanas, ...optionalAsanas];
+
+    // Filter to only show the CURRENT asana index
+    const currentIndex = (currentAthlete as any).current_asana_index || 0;
+    return fullList.slice(currentIndex, currentIndex + 1);
   };
 
-
   const asanaList = getAsanaList();
-  const alreadySubmitted = existingScores && existingScores.length > 0 && existingScores[0]?.submitted;
+  const currentActiveAsana = asanaList[0];
+  const totalAsanasCount = (() => {
+    if (!currentAthlete || !judge?.events) return 0;
+    const event = judge.events as any;
+    const isTraditional = event.event_category === 'traditional';
+    const numCompulsory = isTraditional ? (event.round === 'final' ? 4 : 5) : 0;
+    const optionalCodes = [
+      (currentAthlete as any).optional_asana1,
+      (currentAthlete as any).optional_asana2,
+      (currentAthlete as any).optional_asana3,
+      (currentAthlete as any).optional_asana4,
+      (currentAthlete as any).optional_asana5
+    ].filter(Boolean);
+    return numCompulsory + optionalCodes.length;
+  })();
+
+  const isChiefJudge = hasRole('chief_judge');
+  const alreadySubmittedActive = existingScores?.some(s => s.asana_code === currentActiveAsana?.asana_code && s.submitted);
 
   const totalScore = asanaList.reduce((sum, asana) => {
     const raw = scores[asana.asana_code] || 0;
     const base = asana.base_value || 1;
     return sum + raw * base;
-
   }, 0);
 
 
@@ -202,6 +272,8 @@ export default function JudgeScoring() {
     );
   }
 
+  const athleteIdx = (currentAthlete as any)?.current_asana_index || 0;
+
   return (
     <DashboardLayout>
       <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
@@ -209,13 +281,38 @@ export default function JudgeScoring() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-display font-bold">
-              {isDJudge && 'D Judge'}{isTJudge && 'T Judge'}{isEJudge && 'E Judge'} Scoring
+              {isChiefJudge && 'Chief Judge'}{isDJudge && !isChiefJudge && 'D Judge'}{isTJudge && 'T Judge'}{isEJudge && 'E Judge'} Scoring
             </h1>
             <p className="text-muted-foreground">{judge.events?.event_name} • {judge.judge_label || judge.role}</p>
           </div>
-          {alreadySubmitted && (
-            <Badge className="bg-success text-success-foreground"><CheckCircle2 className="w-3 h-3 mr-1" /> Submitted</Badge>
-          )}
+          <div className="flex gap-2">
+            {isChiefJudge && currentAthlete && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={athleteIdx <= 0}
+                  onClick={() => updateAsanaIndex.mutate(athleteIdx - 1)}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                </Button>
+                <div className="flex items-center px-3 bg-accent rounded-md text-sm font-bold">
+                  Asana {athleteIdx + 1} / {totalAsanasCount}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={athleteIdx >= totalAsanasCount - 1}
+                  onClick={() => updateAsanaIndex.mutate(athleteIdx + 1)}
+                >
+                  Next <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </>
+            )}
+            {alreadySubmittedActive && !isChiefJudge && (
+              <Badge className="bg-success text-success-foreground"><CheckCircle2 className="w-3 h-3 mr-1" /> Current Submitted</Badge>
+            )}
+          </div>
         </div>
 
         {/* Current Athlete */}
@@ -243,89 +340,147 @@ export default function JudgeScoring() {
           </Card>
         )}
 
-        {/* Scoring Grid - D Judge and T Judge */}
+        {/* Scoring Card */}
         {currentAthlete && (isDJudge || isTJudge) && (
-          <Card className="card-elevated">
+          <Card className="card-elevated relative overflow-hidden">
+            {alreadySubmittedActive && !isChiefJudge && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-success" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Score Submitted!</h3>
+                <p className="text-muted-foreground">Waiting for the Chief Judge to load the next asana...</p>
+                <div className="mt-6 flex items-center gap-2 text-sm text-primary font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Staying synced...
+                </div>
+              </div>
+            )}
+
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Asana Scores (max {maxScore} per asana)</span>
-                <span className="text-2xl font-display text-primary">Total: {totalScore.toFixed(2)}</span>
+                <span>{currentActiveAsana?.asana_name || 'Active Asana'}</span>
+                {!isTJudge && currentActiveAsana && (
+                  <Badge variant="outline" className="text-lg py-1 px-4 border-2">
+                    Score: {scores[currentActiveAsana.asana_code] || 0}
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {asanaList.map((asana, index) => {
-                  const isOptional = asana.type === 'optional';
-
-                  return (
-                    <div key={asana.asana_code} className="flex items-center gap-4 p-4 rounded-xl bg-accent/30 border border-border">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                        {index + 1}
+              {currentActiveAsana ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {currentActiveAsana.image_url && (
+                      <div className="w-full md:w-1/3 aspect-square rounded-2xl border-2 border-primary/10 overflow-hidden bg-muted shadow-inner">
+                        <img
+                          src={currentActiveAsana.image_url}
+                          alt={currentActiveAsana.asana_name}
+                          className="w-full h-full object-contain p-2"
+                        />
                       </div>
-                      <div className="flex items-start gap-4">
-                        {asana.image_url && (
-                          <div className="w-20 h-20 rounded-xl border overflow-hidden bg-muted flex-shrink-0">
-                            <img src={asana.image_url} alt={asana.asana_name} className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono font-bold text-primary">{asana.asana_code}</span>
-                            <Badge variant={asana.type === 'compulsory' ? 'default' : 'secondary'}>{asana.type}</Badge>
-                          </div>
-                          <h3 className="text-lg font-bold leading-tight">{asana.asana_name}</h3>
-                          {asana.type === 'optional' && (
-                            <p className="text-xs text-muted-foreground mt-1">Base Value: <span className="font-bold text-primary">{asana.base_value}</span></p>
+                    )}
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-primary border-primary/20">
+                          {currentActiveAsana.asana_code}
+                        </Badge>
+                        <Badge variant={currentActiveAsana.type === 'compulsory' ? 'default' : 'secondary'}>
+                          {currentActiveAsana.type}
+                        </Badge>
+                      </div>
+
+                      {currentActiveAsana.type === 'optional' && (
+                        <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+                          <p className="text-sm text-muted-foreground">Base Value</p>
+                          <p className="text-xl font-bold text-primary">{currentActiveAsana.base_value}</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <Label className="text-base">Enter Score (max {maxScore})</Label>
+                        <div className="flex items-center gap-4">
+                          {isTJudge ? (
+                            <div className="flex-1">
+                              <Input
+                                type="number" min={0} max={60} step={1}
+                                value={scores[currentActiveAsana.asana_code] !== undefined ? Math.round((scores[currentActiveAsana.asana_code] / 2) * 60) : ''}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value);
+                                  if (!isNaN(val) && val >= 0 && val <= 60) {
+                                    setScores(s => ({ ...s, [currentActiveAsana.asana_code]: (val / 60) * 2 }));
+                                  } else if (e.target.value === '') {
+                                    setScores(s => ({ ...s, [currentActiveAsana.asana_code]: 0 }));
+                                  }
+                                }}
+                                className="h-14 text-2xl font-bold text-center border-2 focus:border-primary"
+                                placeholder="Seconds (0-60)"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex-1">
+                              <Input
+                                type="number" min={0} max={maxScore} step={0.5}
+                                value={scores[currentActiveAsana.asana_code] ?? ''}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val >= 0 && val <= maxScore) {
+                                    setScores(s => ({ ...s, [currentActiveAsana.asana_code]: val }));
+                                  } else if (e.target.value === '') {
+                                    setScores(s => ({ ...s, [currentActiveAsana.asana_code]: 0 }));
+                                  }
+                                }}
+                                className="h-14 text-2xl font-bold text-center border-2 focus:border-primary"
+                              />
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={maxScore}
-                            step={0.5}
-                            value={scores[asana.asana_code] ?? ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (!isNaN(val) && val >= 0 && val <= maxScore) {
-                                setScores(s => ({ ...s, [asana.asana_code]: val }));
-                              } else if (e.target.value === '') {
-                                setScores(s => ({ ...s, [asana.asana_code]: 0 }));
-                              }
-                            }}
-                            className="w-24 h-12 text-center text-xl font-bold border-2 border-primary/20"
-                          />
-                          <span className="text-sm font-medium text-muted-foreground mr-2">/ {maxScore}</span>
-                        </div>
-                        {/* Quick Score Buttons */}
-                        <div className="flex flex-wrap justify-center gap-1 max-w-[200px]">
-                          {[0, 2, 4, 6, 8].filter(v => v <= maxScore).map(val => (
-                            <Button
-                              key={val}
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-10 text-xs font-bold"
-                              onClick={() => setScores(s => ({ ...s, [asana.asana_code]: val }))}
-                            >
-                              {val}
-                            </Button>
-                          ))}
-                        </div>
+
+                      {/* Quick Score Buttons */}
+                      <div className="grid grid-cols-5 gap-2">
+                        {isDJudge && [0, 2, 4, 6, 8].filter(v => v <= maxScore).map(val => (
+                          <Button
+                            key={val} variant={scores[currentActiveAsana.asana_code] === val ? 'default' : 'outline'}
+                            className="h-12 font-bold text-lg"
+                            onClick={() => setScores(s => ({ ...s, [currentActiveAsana.asana_code]: val }))}
+                          >
+                            {val}
+                          </Button>
+                        ))}
+                        {isTJudge && [15, 30, 45, 60].map(secs => (
+                          <Button
+                            key={secs} variant={Math.round((scores[currentActiveAsana.asana_code] || 0) / 2 * 60) === secs ? 'default' : 'outline'}
+                            className="h-12 font-bold"
+                            onClick={() => setScores(s => ({ ...s, [currentActiveAsana.asana_code]: (secs / 60) * 2 }))}
+                          >
+                            {secs}s
+                          </Button>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
 
-
-              <div className="mt-6 flex justify-end">
-                <Button size="lg" onClick={() => submitScores.mutate()} disabled={submitScores.isPending}>
-                  <Send className="w-4 h-4 mr-2" />
-                  {alreadySubmitted ? 'Update Scores' : 'Submit Scores'}
-                </Button>
-              </div>
+                  <div className="pt-6 border-t flex justify-between items-center">
+                    <div className="text-sm text-muted-foreground italic">
+                      {isChiefJudge ? 'Chief Judge can see all but scores as CJ' : 'Your score will be sent to the Scorer panel'}
+                    </div>
+                    <Button
+                      size="lg"
+                      className="px-10 h-14 text-lg font-bold shadow-lg shadow-primary/20"
+                      onClick={() => submitScores.mutate()}
+                      disabled={submitScores.isPending || scores[currentActiveAsana.asana_code] === undefined}
+                    >
+                      <Send className="w-5 h-5 mr-2" />
+                      {alreadySubmittedActive ? 'Update Score' : 'Submit Score'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-10 text-center text-muted-foreground">
+                  No asana found at this index.
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -362,11 +517,13 @@ export default function JudgeScoring() {
 
               <div className="flex flex-wrap gap-2">
                 {[
-                  { label: 'Incorrect Order', val: 0.5 },
-                  { label: 'Missing Asana', val: 1.0 },
-                  { label: 'Time Violation (>30s)', val: 0.5 },
-                  { label: 'Unsteadiness/Fall', val: 0.5 },
-                  { label: 'Costune Violation', val: 0.5 },
+                  { label: 'Incorrect Order (1st)', val: 2.0 },
+                  { label: 'Incorrect Order (2nd)', val: 4.0 },
+                  { label: 'Incorrect Order (3rd)', val: 6.0 },
+                  { label: 'Missing 1 Category', val: 5.0 },
+                  { label: 'Missing 2 Categories', val: 10.0 },
+                  { label: 'Missing 3 Categories', val: 15.0 },
+                  { label: 'Extra Asana', val: 5.0 },
                 ].map(p => (
                   <Button
                     key={p.label}
@@ -405,6 +562,6 @@ export default function JudgeScoring() {
           </Card>
         )}
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 }

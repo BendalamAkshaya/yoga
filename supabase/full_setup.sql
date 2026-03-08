@@ -30,6 +30,8 @@ CREATE TABLE public.events (
   type event_type NOT NULL DEFAULT 'individual',
   round event_round NOT NULL DEFAULT 'semi',
   no_of_asanas INT NOT NULL DEFAULT 7,
+  age_group TEXT,
+  event_category TEXT NOT NULL DEFAULT 'traditional',
   is_active BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -64,6 +66,8 @@ CREATE TABLE public.athletes (
   optional_asana1 TEXT,
   optional_asana2 TEXT,
   optional_asana3 TEXT,
+  optional_asana4 TEXT,
+  optional_asana5 TEXT,
   status athlete_status NOT NULL DEFAULT 'waiting',
   sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -73,6 +77,7 @@ CREATE TABLE public.judges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
+  email TEXT,
   role app_role NOT NULL,
   judge_label TEXT,
   event_id UUID REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,

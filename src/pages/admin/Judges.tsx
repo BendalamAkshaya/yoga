@@ -19,6 +19,7 @@ const roleOptions = [
   { value: 't_judge', label: 'T Judge' },
   { value: 'e_judge', label: 'E Judge' },
   { value: 'stage_manager', label: 'Stage Manager' },
+  { value: 'scorer', label: 'Scorer' },
 ];
 
 export default function AdminJudges() {
@@ -64,6 +65,7 @@ export default function AdminJudges() {
       const { error: judgeError } = await supabase.from('judges').insert({
         user_id: authData.user.id,
         name: form.name,
+        email: form.email,
         role: form.role as any,
         judge_label: form.judge_label || null,
         event_id: form.event_id,
@@ -96,6 +98,7 @@ export default function AdminJudges() {
     t_judge: 'bg-info text-info-foreground',
     e_judge: 'bg-warning text-warning-foreground',
     stage_manager: 'bg-accent text-accent-foreground',
+    scorer: 'bg-muted text-muted-foreground',
   };
 
   return (
@@ -155,41 +158,72 @@ export default function AdminJudges() {
           </Dialog>
         </div>
 
-        <Card className="card-elevated overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Label</TableHead>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {judges?.map((judge: any) => (
-                  <TableRow key={judge.id}>
-                    <TableCell className="font-medium">{judge.name}</TableCell>
-                    <TableCell>
-                      <Badge className={roleBadgeColors[judge.role] || ''}>{roleOptions.find(r => r.value === judge.role)?.label || judge.role}</Badge>
-                    </TableCell>
-                    <TableCell className="font-mono">{judge.judge_label || '-'}</TableCell>
-                    <TableCell>{judge.events?.event_name}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => deleteJudge.mutate(judge.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-1 p-6 bg-primary/5 border-primary/20 h-fit">
+            <h2 className="font-display font-semibold flex items-center gap-2 mb-4">
+              <Plus className="w-4 h-4 text-primary" />
+              Standard Panel Info
+            </h2>
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">Standard login for all judges:</p>
+              <div className="p-3 bg-background rounded border font-mono space-y-1 text-[11px]">
+                <div className="flex justify-between"><span>CJ:</span> <span>cj@yoga.com</span></div>
+                <div className="flex justify-between"><span>D1-D5:</span> <span>d1@yoga.com...d5@yoga.com</span></div>
+                <div className="flex justify-between"><span>T:</span> <span>t1@yoga.com</span></div>
+                <div className="flex justify-between"><span>E:</span> <span>e1@yoga.com</span></div>
+                <div className="flex justify-between"><span>S/A:</span> <span>sa1@yoga.com</span></div>
+                <div className="flex justify-between"><span>SM:</span> <span>sm1@yoga.com</span></div>
+                <div className="pt-2 border-t mt-2 flex justify-between">
+                  <span className="text-primary font-bold">Pass:</span>
+                  <span className="text-primary font-bold">Judge@123</span>
+                </div>
+              </div>
+              <p className="text-[10px] italic text-muted-foreground">Note: These accounts must be created in Supabase first using the provided SQL script.</p>
+            </div>
+          </Card>
+
+          <Card className="md:col-span-2 card-elevated overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Label</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-                {!isLoading && judges?.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No judges assigned yet</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {judges?.map((judge: any) => (
+                    <TableRow key={judge.id}>
+                      <TableCell className="font-medium">
+                        <div>
+                          <div>{judge.name}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{judge.email || '-'}</TableCell>
+                      <TableCell>
+                        <Badge className={roleBadgeColors[judge.role] || ''}>{roleOptions.find(r => r.value === judge.role)?.label || judge.role}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono">{judge.judge_label || '-'}</TableCell>
+                      <TableCell>{judge.events?.event_name}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => deleteJudge.mutate(judge.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!isLoading && judges?.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No judges assigned yet</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );

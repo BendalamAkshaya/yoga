@@ -11,13 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Search, X } from 'lucide-react';
 
 export default function AdminAthletes() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [asanaSearch, setAsanaSearch] = useState<Record<number, string>>({});
   const [selectedEvent, setSelectedEvent] = useState<string>('all');
-  const [form, setForm] = useState({ name: '', age: '', gender: 'male', district: '', event_id: '', optional_asana1: '', optional_asana2: '', optional_asana3: '' });
+  const [form, setForm] = useState({ name: '', age: '', gender: 'male', district: '', event_id: '', optional_asana1: '', optional_asana2: '', optional_asana3: '', optional_asana4: '', optional_asana5: '' });
 
 
   const { data: events } = useQuery({
@@ -53,7 +54,9 @@ export default function AdminAthletes() {
       event_id: v,
       optional_asana1: '',
       optional_asana2: '',
-      optional_asana3: ''
+      optional_asana3: '',
+      optional_asana4: '',
+      optional_asana5: ''
     }));
   };
 
@@ -80,6 +83,8 @@ export default function AdminAthletes() {
         optional_asana1: form.optional_asana1 === 'none' ? null : (form.optional_asana1 || null),
         optional_asana2: form.optional_asana2 === 'none' ? null : (form.optional_asana2 || null),
         optional_asana3: form.optional_asana3 === 'none' ? null : (form.optional_asana3 || null),
+        optional_asana4: form.optional_asana4 === 'none' ? null : (form.optional_asana4 || null),
+        optional_asana5: form.optional_asana5 === 'none' ? null : (form.optional_asana5 || null),
       });
 
 
@@ -88,7 +93,7 @@ export default function AdminAthletes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['athletes'] });
       setOpen(false);
-      setForm({ name: '', age: '', gender: 'male', district: '', event_id: '', optional_asana1: '', optional_asana2: '', optional_asana3: '' });
+      setForm({ name: '', age: '', gender: 'male', district: '', event_id: '', optional_asana1: '', optional_asana2: '', optional_asana3: '', optional_asana4: '', optional_asana5: '' });
 
       toast.success('Athlete registered!');
     },
@@ -171,37 +176,99 @@ export default function AdminAthletes() {
                     </Select>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((num) => {
+                    {[1, 2, 3, 4, 5].map((num) => {
                       const currentEvent = events?.find(e => e.id === form.event_id);
+                      const isTraditional = currentEvent?.event_name.toLowerCase().includes('traditional');
+                      const isIndividual = currentEvent?.event_name.toLowerCase().includes('individual') && !isTraditional;
                       const isFinal = currentEvent?.round === 'final';
-                      const isVisible = num <= (isFinal ? 3 : 2);
+
+                      // Determine how many optional asanas to show based on event type
+                      let maxOptional = 0;
+                      if (isTraditional && isFinal) {
+                        maxOptional = 3;
+                      } else if (isTraditional && !isFinal) {
+                        maxOptional = 2;
+                      } else if (isIndividual) {
+                        maxOptional = 5; // Specialized individual events have 5 optional asanas
+                      } else {
+                        // Default fallback (e.g. Artistic/Rhythmic might not use optional asanas this way, but we will fallback to 3)
+                        maxOptional = 3;
+                      }
+
+                      const isVisible = num <= maxOptional;
                       const selectedCode = (form as any)[`optional_asana${num}`];
                       const selectedAsana = optionalAsanas?.find(a => a.asana_code === selectedCode);
 
                       if (!isVisible) return null;
 
+                      const searchTerm = (asanaSearch[num] || '').toLowerCase();
+                      const filtered = optionalAsanas?.filter(a =>
+                        a.asana_code.toLowerCase().includes(searchTerm)
+                      ) || [];
+
                       return (
                         <div key={num} className="space-y-2">
                           <Label>Optional Asana {num}</Label>
-                          <Select
-                            value={selectedCode || 'none'}
-                            onValueChange={(v) => setForm(f => ({ ...f, [`optional_asana${num}`]: v }))}
-                          >
-                            <SelectTrigger className="h-10">
-                              <SelectValue placeholder="Select asana" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              {optionalAsanas?.map(asana => (
-                                <SelectItem key={asana.asana_code} value={asana.asana_code}>
-                                  {asana.asana_code} - {asana.asana_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {selectedAsana?.image_url && (
-                            <div className="mt-2 w-full aspect-square rounded-lg border overflow-hidden bg-muted">
-                              <img src={selectedAsana.image_url} alt={selectedAsana.asana_name} className="w-full h-full object-cover" />
+
+                          {/* Search input */}
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input
+                              className="pl-7 h-8 text-sm"
+                              placeholder="Search asana code..."
+                              value={asanaSearch[num] || ''}
+                              onChange={(e) => setAsanaSearch(s => ({ ...s, [num]: e.target.value }))}
+                            />
+                          </div>
+
+                          {/* Scrollable asana list */}
+                          <div className="h-40 overflow-y-auto border rounded-md bg-background space-y-0.5 p-1">
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, [`optional_asana${num}`]: '' }))}
+                              className={`w-full text-left text-sm px-2 py-1.5 rounded transition-colors ${!selectedCode ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-accent'
+                                }`}
+                            >
+                              — None —
+                            </button>
+                            {filtered.map(asana => (
+                              <button
+                                key={asana.asana_code}
+                                type="button"
+                                onClick={() => setForm(f => ({ ...f, [`optional_asana${num}`]: asana.asana_code }))}
+                                className={`w-full flex items-center gap-2 text-left text-sm px-2 py-1.5 rounded transition-colors ${selectedCode === asana.asana_code
+                                  ? 'bg-primary/15 text-primary font-semibold border border-primary/30'
+                                  : 'hover:bg-accent'
+                                  }`}
+                              >
+                                {asana.image_url && (
+                                  <img src={asana.image_url} alt={asana.asana_code} className="w-7 h-7 rounded object-cover flex-shrink-0 border" />
+                                )}
+                                <span className="font-mono">{asana.asana_code}</span>
+                              </button>
+                            ))}
+                            {filtered.length === 0 && (
+                              <p className="text-center text-xs text-muted-foreground py-4">No results</p>
+                            )}
+                          </div>
+
+                          {/* Selected asana preview */}
+                          {selectedAsana && (
+                            <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
+                              {selectedAsana.image_url && (
+                                <img src={selectedAsana.image_url} alt={selectedAsana.asana_code} className="w-12 h-12 rounded object-cover border" />
+                              )}
+                              <div>
+                                <p className="text-sm font-bold font-mono text-primary">{selectedAsana.asana_code}</p>
+                                <p className="text-xs text-muted-foreground">Base value: {selectedAsana.base_value}</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="ml-auto text-muted-foreground hover:text-destructive"
+                                onClick={() => setForm(f => ({ ...f, [`optional_asana${num}`]: '' }))}
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             </div>
                           )}
                         </div>

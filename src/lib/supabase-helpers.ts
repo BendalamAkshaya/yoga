@@ -21,7 +21,7 @@ export function calculateFinalScore(
   tTotal: number,
   numberOfAsanas: number,
   penalties: number
-): { dAverage: number; tAverage: number; finalScore: number } {
+): { dAverage: number; tAverage: number; tTotal: number; finalScore: number } {
   // Each D judge has a total score (sum of their asana scores with base values applied)
   const dTotals = dScores.map(scores => scores.reduce((a, b) => a + b, 0));
 
@@ -33,15 +33,17 @@ export function calculateFinalScore(
   }
 
   const dAverage = sorted.length > 0 ? sorted.reduce((a, b) => a + b, 0) / sorted.length : 0;
+  // tTotal is the sum of T Judge's final_scores (already multiplied by Base Value)
   const tAverage = numberOfAsanas > 0 ? tTotal / numberOfAsanas : 0;
 
-  let finalScore = dAverage + tAverage - penalties;
+  let finalScore = dAverage + tTotal - penalties;
   finalScore = Math.min(finalScore, 70); // Max 70
   finalScore = Math.max(finalScore, 0);
 
   return {
     dAverage: Math.round(dAverage * 100) / 100,
     tAverage: Math.round(tAverage * 100) / 100,
+    tTotal: Math.round(tTotal * 100) / 100,
     finalScore: Math.round(finalScore * 100) / 100,
   };
 }
