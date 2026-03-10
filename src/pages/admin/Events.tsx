@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, Power, CheckCircle2, Gavel } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { getSafeImageUrl } from '@/lib/supabase-helpers';
 
 // ─────────────────────────────────────────────
 // Constants — map internal keys to folder names & display labels
@@ -279,7 +280,7 @@ export default function AdminEvents() {
                         <div key={idx} className="flex flex-col items-center gap-1">
                           <div className="w-full aspect-square rounded-md border overflow-hidden bg-muted">
                             <img
-                              src={url}
+                              src={getSafeImageUrl(url)}
                               alt={`Compulsory ${idx + 1}`}
                               className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}

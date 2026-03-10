@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, Search } from 'lucide-react';
+import { getSafeImageUrl } from '@/lib/supabase-helpers';
 
 export default function AdminAsanas() {
     const queryClient = useQueryClient();
@@ -110,7 +111,7 @@ export default function AdminAsanas() {
                                         <Input value={form.image_url} onChange={(e) => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://example.com/image.jpg" />
                                         {form.image_url && (
                                             <div className="w-10 h-10 rounded border overflow-hidden bg-muted">
-                                                <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" />
+                                                <img src={getSafeImageUrl(form.image_url)} alt="Preview" className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                     </div>
@@ -166,7 +167,7 @@ export default function AdminAsanas() {
                                             <TableCell>
                                                 <div className="w-10 h-10 rounded border overflow-hidden bg-muted">
                                                     {asana.image_url ? (
-                                                        <img src={asana.image_url} alt={asana.asana_name} className="w-full h-full object-cover" />
+                                                        <img src={getSafeImageUrl(asana.image_url)} alt={asana.asana_name} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No Image</div>
                                                     )}

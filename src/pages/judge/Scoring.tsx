@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { CheckCircle2, AlertTriangle, Send, User, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { getSafeImageUrl } from '@/lib/supabase-helpers';
 
 export default function JudgeScoring() {
   const { user, hasRole } = useAuth();
@@ -375,7 +376,7 @@ export default function JudgeScoring() {
                     {currentActiveAsana.image_url && (
                       <div className="w-full md:w-1/3 aspect-square rounded-2xl border-2 border-primary/10 overflow-hidden bg-muted shadow-inner">
                         <img
-                          src={currentActiveAsana.image_url}
+                          src={getSafeImageUrl(currentActiveAsana.image_url)}
                           alt={currentActiveAsana.asana_name}
                           className="w-full h-full object-contain p-2"
                         />
@@ -522,7 +523,7 @@ export default function JudgeScoring() {
                   {currentActiveAsana?.image_url ? (
                     <div className="aspect-square rounded-xl border bg-white flex items-center justify-center p-2 relative group overflow-hidden">
                       <img
-                        src={currentActiveAsana.image_url}
+                        src={getSafeImageUrl(currentActiveAsana.image_url)}
                         alt={currentActiveAsana.asana_name}
                         className="max-h-full max-w-full object-contain transition-transform group-hover:scale-110"
                       />

@@ -47,3 +47,9 @@ export function calculateFinalScore(
     finalScore: Math.round(finalScore * 100) / 100,
   };
 }
+
+export function getSafeImageUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  // Just use standard encodeURI. Do NOT encode `+` to `%2B` because Vite static server fails to match it.
+  return encodeURI(url);
+}

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Trash2, Search, X } from 'lucide-react';
+import { getSafeImageUrl } from '@/lib/supabase-helpers';
 
 export default function AdminAthletes() {
   const queryClient = useQueryClient();
@@ -242,7 +243,7 @@ export default function AdminAthletes() {
                                   }`}
                               >
                                 {asana.image_url && (
-                                  <img src={asana.image_url} alt={asana.asana_code} className="w-7 h-7 rounded object-cover flex-shrink-0 border" />
+                                  <img src={getSafeImageUrl(asana.image_url)} alt={asana.asana_code} className="w-7 h-7 rounded object-cover flex-shrink-0 border" />
                                 )}
                                 <span className="font-mono">{asana.asana_code}</span>
                               </button>
@@ -256,7 +257,7 @@ export default function AdminAthletes() {
                           {selectedAsana && (
                             <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
                               {selectedAsana.image_url && (
-                                <img src={selectedAsana.image_url} alt={selectedAsana.asana_code} className="w-12 h-12 rounded object-cover border" />
+                                <img src={getSafeImageUrl(selectedAsana.image_url)} alt={selectedAsana.asana_code} className="w-12 h-12 rounded object-cover border" />
                               )}
                               <div>
                                 <p className="text-sm font-bold font-mono text-primary">{selectedAsana.asana_code}</p>
