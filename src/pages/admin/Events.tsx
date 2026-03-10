@@ -37,13 +37,15 @@ const ROUNDS = [
 ] as const;
 
 // Derive compulsory image preview URLs for traditional events
+const SUPABASE_STORAGE_BASE = 'https://odkguzwsusdwwvlccavv.supabase.co/storage/v1/object/public/asana-images';
+
 function getCompulsoryImageUrls(round: string, ageGroup: string): string[] {
   const roundData = ROUNDS.find(r => r.value === round);
   const ageData = AGE_GROUPS.find(a => a.value === ageGroup);
   if (!roundData || !ageData) return [];
   const count = roundData.compulsoryCount;
   return Array.from({ length: count }, (_, i) =>
-    `/compulsory-traditional/${roundData.folder.toLowerCase()}/${ageData.folder}/${i + 1}.png`
+    `${SUPABASE_STORAGE_BASE}/compulsory-traditional/${roundData.folder.toLowerCase()}/${ageData.folder}/${i + 1}.png`
   );
 }
 

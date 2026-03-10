@@ -203,6 +203,8 @@ export default function JudgeScoring() {
       const roundFolder = event.round === 'final' ? 'Final' : 'Semi-Final';
       const numCompulsory = event.round === 'final' ? 4 : 5;
 
+      const SUPABASE_STORAGE_BASE = 'https://odkguzwsusdwwvlccavv.supabase.co/storage/v1/object/public/asana-images';
+
       for (let i = 1; i <= numCompulsory; i++) {
         compulsoryAsanas.push({
           asana_code: `COMP-${ageGroup}-${event.round}-${i}`,
@@ -210,7 +212,7 @@ export default function JudgeScoring() {
           type: 'compulsory',
           base_value: 1.0,
           image_url: ageFolder
-            ? `/compulsory-traditional/${roundFolder.toLowerCase()}/${ageFolder}/${i}.png`
+            ? `${SUPABASE_STORAGE_BASE}/compulsory-traditional/${roundFolder.toLowerCase()}/${ageFolder}/${i}.png`
             : null,
         });
       }
