@@ -17,12 +17,12 @@ import { getSafeImageUrl } from '@/lib/supabase-helpers';
 // Constants — map internal keys to folder names & display labels
 // ─────────────────────────────────────────────
 const AGE_GROUPS = [
-  { value: 'sub_junior', label: 'Sub Junior (10–14 Years)', folder: 'Sub Juniors (10+ to 14 Years)' },
-  { value: 'junior', label: 'Junior (14–18 Years)', folder: 'Juniors (14+ to 18 yeaars)' },
-  { value: 'senior', label: 'Senior (18–28 Years)', folder: 'Senior (18+ to 28 years)' },
-  { value: 'senior_a', label: 'Senior-A (28–35 Years)', folder: 'Senior-A (28+ to 35 Years)' },
-  { value: 'senior_b', label: 'Senior-B (35–45 Years)', folder: 'Senior-B (35+ to 45 Years)' },
-  { value: 'senior_c', label: 'Senior-C (45–55 Years)', folder: 'Senior-C (45+ to 55 Years)' },
+  { value: 'sub_junior', label: 'Sub Junior (10–14 Years)', folder: 'sub_junior' },
+  { value: 'junior', label: 'Junior (14–18 Years)', folder: 'junior' },
+  { value: 'senior', label: 'Senior (18–28 Years)', folder: 'senior' },
+  { value: 'senior_a', label: 'Senior-A (28–35 Years)', folder: 'senior_a' },
+  { value: 'senior_b', label: 'Senior-B (35–45 Years)', folder: 'senior_b' },
+  { value: 'senior_c', label: 'Senior-C (45–55 Years)', folder: 'senior_c' },
 ] as const;
 
 const EVENT_CATEGORIES = [
@@ -43,7 +43,7 @@ function getCompulsoryImageUrls(round: string, ageGroup: string): string[] {
   if (!roundData || !ageData) return [];
   const count = roundData.compulsoryCount;
   return Array.from({ length: count }, (_, i) =>
-    `/Compulsory Asana Traditional/${roundData.folder}/${ageData.folder}/${i + 1}.png`
+    `/compulsory-traditional/${roundData.folder.toLowerCase()}/${ageData.folder}/${i + 1}.png`
   );
 }
 

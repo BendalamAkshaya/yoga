@@ -180,12 +180,12 @@ export default function JudgeScoring() {
 
   // Map age_group DB value to folder name in the public directory
   const AGE_GROUP_FOLDERS: Record<string, string> = {
-    sub_junior: 'Sub Juniors (10+ to 14 Years)',
-    junior: 'Juniors (14+ to 18 yeaars)',
-    senior: 'Senior (18+ to 28 years)',
-    senior_a: 'Senior-A (28+ to 35 Years)',
-    senior_b: 'Senior-B (35+ to 45 Years)',
-    senior_c: 'Senior-C (45+ to 55 Years)',
+    sub_junior: 'sub_junior',
+    junior: 'junior',
+    senior: 'senior',
+    senior_a: 'senior_a',
+    senior_b: 'senior_b',
+    senior_c: 'senior_c',
   };
 
   const getAsanaList = () => {
@@ -210,7 +210,7 @@ export default function JudgeScoring() {
           type: 'compulsory',
           base_value: 1.0,
           image_url: ageFolder
-            ? `/Compulsory Asana Traditional/${roundFolder}/${ageFolder}/${i}.png`
+            ? `/compulsory-traditional/${roundFolder.toLowerCase()}/${ageFolder}/${i}.png`
             : null,
         });
       }
