@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const OPTIONAL_ASANAS_DIR = path.join(PUBLIC_DIR, 'OPTIONAL ASANAS');
+const OPTIONAL_ASANAS_DIR = path.join(PUBLIC_DIR, 'optional-asanas');
 const SEED_FILE = path.join(__dirname, 'supabase', 'seed_asanas.sql');
 
 function generateSeedData() {
@@ -47,7 +47,7 @@ function generateSeedData() {
                 const asanaCode = path.parse(file).name;
 
                 // Keep the whole public path, URL encoded (just in case)
-                let imageUrl = `/OPTIONAL ASANAS/${group}/${baseValueStr}/${file}`;
+                let imageUrl = `/optional-asanas/${group}/${baseValueStr}/${file}`;
 
                 // Fallback to Code as name
                 const asanaName = asanaCode;

@@ -203,7 +203,7 @@ export default function JudgeScoring() {
       const roundFolder = event.round === 'final' ? 'Final' : 'Semi-Final';
       const numCompulsory = event.round === 'final' ? 4 : 5;
 
-      const SUPABASE_STORAGE_BASE = 'https://odkguzwsusdwwvlccavv.supabase.co/storage/v1/object/public/asana-images';
+      const IMAGE_BASE = '';
 
       for (let i = 1; i <= numCompulsory; i++) {
         compulsoryAsanas.push({
@@ -212,7 +212,7 @@ export default function JudgeScoring() {
           type: 'compulsory',
           base_value: 1.0,
           image_url: ageFolder
-            ? `${SUPABASE_STORAGE_BASE}/compulsory-traditional/${roundFolder.toLowerCase()}/${ageFolder}/${i}.png`
+            ? `${IMAGE_BASE}/compulsory-traditional/${roundFolder.toLowerCase()}/${ageFolder}/${i}.png`
             : null,
         });
       }
